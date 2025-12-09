@@ -58,7 +58,7 @@ GEMINI_API_BASE=https://generativelanguage.googleapis.com/v1beta
 GEMINI_SYSTEM_PROMPT=You are a helpful assistant.
 
 # Admin dashboard
-PORTAL_ADMIN_TOKEN=optional_shared_token
+PORTAL_ADMIN_TOKEN=admin-secret
 ```
 
 Notes:
