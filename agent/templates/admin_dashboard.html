@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Conversation Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background:#0b1020; color:#e5e7eb; }
+      header { padding:20px 30px; background:#0f172a; display:flex; align-items:center; gap:16px; border-bottom:1px solid #1f2937; }
+      a { color:#93c5fd; text-decoration:none; }
+      main { padding:24px 30px; display:grid; gap:32px; }
+      .card { background:#0f172a; border:1px solid #1f2937; border-radius:16px; padding:20px; box-shadow:0 12px 45px rgba(0,0,0,.3); }
+      table { width:100%; border-collapse:collapse; font-size:.95rem; }
+      th, td { padding:10px 8px; border-bottom:1px solid #1f2937; text-align:left; }
+      th { color:#9ca3af; font-weight:600; }
+      tr:last-child td { border-bottom:0; }
+      .pill { padding:2px 8px; border-radius:999px; font-size:.75rem; border:1px solid #1f2937; }
+      .muted { color:#9ca3af; font-size:.9rem; }
+      .section-title { margin:0 0 12px; font-size:1.1rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <div>Logged in as <strong>{{ profile.display_name|default:profile.identifier }}</strong></div>
+        <div class="muted">Full visibility into all profiles</div>
+      </div>
+      <div style="margin-left:auto;">
+        <a href="{% url 'index' %}">← Back to chat</a> ·
+        <a href="{% url 'profile_logout' %}">Logout</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2 class="section-title">Profiles overview</h2>
+        {% if profile_stats %}
+        <table>
+          <thead>
+            <tr>
+              <th>Profile</th>
+              <th>Total turns</th>
+              <th>Total tokens</th>
+              <th>Last activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in profile_stats %}
+            <tr>
+              <td>{{ row.display_name|default:row.identifier }}</td>
+              <td>{{ row.total_turns }}</td>
+              <td>{{ row.total_tokens|default:0 }}</td>
+              <td>{{ row.last_activity|date:"Y-m-d H:i:s" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No conversations captured yet.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Sessions overview{% if selected_identifier %} ({{ selected_identifier }}){% endif %}</h2>
+        {% if session_stats %}
+        <table>
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>Profile</th>
+              <th>Model</th>
+              <th>Turns</th>
+              <th>Total tokens</th>
+              <th>Last activity</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in session_stats %}
+            <tr>
+              <td style="font-family: ui-monospace;">{{ row.session_id|slice:":8" }}…</td>
+              <td>{{ row.profile.display_name|default:row.profile.identifier }}</td>
+              <td>{{ row.provider_for_display|default:"-" }}</td>
+              <td>{{ row.total_turns }}</td>
+              <td>{{ row.total_tokens|default:0 }}</td>
+              <td>{{ row.last_turn_at|date:"Y-m-d H:i:s" }}</td>
+              <td>{{ row.created_at|date:"Y-m-d H:i:s" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No sessions recorded.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <form id="filterForm" method="get" style="display:flex; gap:12px; align-items:flex-end; margin-bottom:16px;">
+          <div style="flex:1;">
+            <label for="profileFilter" class="muted">Filter by profile</label>
+            <select id="profileFilter" name="profile" style="width:100%; padding:10px; border-radius:10px; border:1px solid #1f2937; background:#0b1020; color:#e5e7eb;">
+              <option value="">All profiles</option>
+              {% for item in profile_choices %}
+              <option value="{{ item.identifier }}" {% if item.identifier == selected_identifier %}selected{% endif %}>
+                {{ item.display_name|default:item.identifier }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div style="flex:1;">
+            <label for="sessionFilter" class="muted">Filter by session</label>
+            <select id="sessionFilter" name="session" style="width:100%; padding:10px; border-radius:10px; border:1px solid #1f2937; background:#0b1020; color:#e5e7eb;">
+              <option value="">All sessions</option>
+              {% for item in session_choices %}
+              <option value="{{ item.session_id }}" {% if item.session_id == selected_session %}selected{% endif %}>
+                {{ item.session_id|slice:":8" }}… · {{ item.profile_display_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn" style="padding:10px 16px; border-radius:10px; border:0; background:#2563eb; color:white;">Apply</button>
+        </form>
+        <h2 class="section-title">
+          Conversation history{% if selected_identifier %} ({{ selected_identifier }}){% endif %}{% if selected_session %} · Session {{ selected_session|slice:":8" }}…{% endif %}
+        </h2>
+        {% if recent_turns %}
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Session</th>
+              <th>Profile</th>
+              <th>Model</th>
+              <th>Latency (ms)</th>
+              <th>Tokens</th>
+              <th>Prompt</th>
+              <th>Response</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for turn in recent_turns %}
+            <tr>
+              <td>{{ turn.created_at|date:"Y-m-d H:i:s" }}</td>
+              <td style="font-family: ui-monospace;">{{ turn.session.session_id|slice:":8" }}…</td>
+              <td>{{ turn.profile.display_name|default:turn.profile.identifier }}</td>
+              <td>{{ turn.provider_for_display|default:"-" }}</td>
+              <td>{{ turn.latency_ms }}</td>
+              <td>{{ turn.total_tokens }}</td>
+              <td style="max-width:220px;">{{ turn.prompt }}</td>
+              <td style="max-width:280px;">{{ turn.response }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No history recorded.</p>
+        {% endif %}
+      </section>
+    </main>
+    <script>
+      const filterForm = document.getElementById('filterForm');
+      const profileSelect = document.getElementById('profileFilter');
+      const sessionSelect = document.getElementById('sessionFilter');
+      if (profileSelect && filterForm && sessionSelect) {
+        profileSelect.addEventListener('change', () => {
+          sessionSelect.value = '';
+          filterForm.submit();
+        });
+      }
+    </script>
+  </body>
+</html>

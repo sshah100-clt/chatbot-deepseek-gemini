@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Virtual Agent</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0b1020; --panel:#0f172a; --ink:#e5e7eb; --muted:#94a3b8; --you:#2563eb; --bot:#1f2937; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--ink); }
+    .session-bar { background:#0f172a; border-bottom:1px solid #1f2937; padding:12px 24px; display:flex; gap:12px; align-items:center; }
+    .session-bar strong { color:#bfdbfe; }
+    .session-links { margin-left:auto; display:flex; gap:16px; font-size:.9rem; }
+    .session-links a { color:#93c5fd; text-decoration:none; }
+    .wrap { max-width:900px; margin:0 auto; padding:24px 20px 60px; }
+    h2 { margin:18px 0 8px; font-weight:600; }
+    .chat {
+      height: 60vh; overflow:auto; background:linear-gradient(180deg,#0f172a, #0b1020);
+      border:1px solid #1f2937; border-radius:14px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.25) inset;
+    }
+    .msg { max-width: 80%; padding:12px 14px; margin:8px 0; border-radius:14px; line-height:1.45; white-space:pre-wrap; }
+    .msg.you { background: rgba(37,99,235,.15); border:1px solid rgba(37,99,235,.35); margin-left:auto; }
+    .msg.bot { background: rgba(15,23,42,.8); border:1px solid rgba(148,163,184,.2); }
+    .msg.err { background:#3f1e25; border:1px solid #8d2f41; }
+    form { display:flex; gap:10px; margin-top:16px; }
+    input { flex:1; padding:12px 14px; border-radius:12px; border:1px solid #1f2937; background:#0b1020; color:#f8fafc; }
+    select { padding:10px 12px; border-radius:12px; border:1px solid #1f2937; background:#0b1020; color:#f8fafc; }
+    button { padding:12px 18px; border-radius:12px; border:0; background:#2563eb; color:white; font-weight:600; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:wait; }
+    .muted { color:var(--muted); font-size:.9rem; }
+    .controls { display:flex; gap:12px; align-items:center; margin-bottom:8px; }
+    .pill { padding:4px 10px; background:#1f2937; border-radius:999px; font-size:.85rem; color:#cbd5f5; border:1px solid #1f2937; }
+    .loading { display:none; align-items:center; gap:8px; color:var(--muted); font-size:.9rem; }
+    .loading.show { display:flex; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#93c5fd; animation:pulse 1s infinite ease-in-out; }
+    .dot:nth-child(2){ animation-delay:0.2s; }
+    .dot:nth-child(3){ animation-delay:0.4s; }
+    @keyframes pulse { 0%, 80%, 100% { opacity:.2; transform:scale(.9);} 40% { opacity:1; transform:scale(1.15);} }
+  </style>
+  <script>
+    window.APP_CONTEXT = {
+      profileIdentifier: "{{ profile.identifier }}",
+      profileName: "{{ profile.display_name|default:profile.identifier|escapejs }}",
+      sessionId: "{{ stored_session_id|default:'' }}",
+      selectedProvider: "{{ selected_provider }}",
+      isAdmin: {{ is_admin|yesno:"true,false" }},
+      history: {{ history_json|default:"[]"|safe }}
+    };
+  </script>
+</head>
+<body>
+  <div class="session-bar">
+    <div>Logged in as <strong>{{ profile.display_name|default:profile.identifier }}</strong></div>
+    <div class="session-links">
+      {% if is_admin %}
+      <a href="{% url 'admin_dashboard' %}">Admin dashboard</a>
+      {% endif %}
+      <a href="{% url 'profile_logout' %}">Logout</a>
+    </div>
+  </div>
+  <div class="wrap">
+    <h2 id="chatHeading" style="margin:0 0 6px;">Chat</h2>
+    <p class="muted" style="margin:0;">Model chosen at login: {{ selected_provider|capfirst }}. All prompts and responses are persisted per profile for analytics.</p>
+    <div id="chat" class="chat"></div>
+    <form id="f" style="margin-top:16px; display:flex; gap:10px;">
+      <input id="q" name="q" placeholder="Type a message…" autocomplete="off" required>
+      <button id="sendBtn">Send</button>
+    </form>
+    <div id="loading" class="loading" aria-live="polite">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <span>Waiting for response…</span>
+    </div>
+  </div>
+
+
+  <script>
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('q');
+    const form = document.getElementById('f');
+    const sendBtn = document.getElementById('sendBtn');
+    const heading = document.getElementById('chatHeading');
+    const APP_CTX = window.APP_CONTEXT || {};
+    const loading = document.getElementById('loading');
+    let currentProvider = (APP_CTX.selectedProvider || 'deepseek');
+    let chatSessionId = APP_CTX.sessionId || '';
+
+    function setHeading(){
+      const pretty = currentProvider.charAt(0).toUpperCase() + currentProvider.slice(1);
+      heading.textContent = `Chat with ${pretty}`;
+      document.title = `Virtual Agent (${pretty})`;
+    }
+    setHeading();
+
+    function bubble(html, cls='bot'){
+      const d=document.createElement('div');
+      d.className='msg '+cls;
+      d.innerHTML=html;
+      chat.appendChild(d);
+      chat.scrollTop=chat.scrollHeight;
+      return d;
+    }
+
+    async function sendText(q){
+      const body = new URLSearchParams({ q });
+      if (chatSessionId) body.set('session_id', chatSessionId);
+      if (APP_CTX.profileIdentifier) body.set('profile', APP_CTX.profileIdentifier);
+      if (APP_CTX.profileName) body.set('profile_name', APP_CTX.profileName);
+      if (currentProvider) body.set('provider', currentProvider);
+      const res = await fetch('/chat/', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+      const payload = await res.json().catch(()=>({}));
+      if (!res.ok){ throw new Error(payload.error||res.statusText); }
+      if (payload.provider) currentProvider = payload.provider;
+      if (payload.session_id){ chatSessionId = payload.session_id; }
+      return payload;
+    }
+
+    if (Array.isArray(APP_CTX.history)){
+      APP_CTX.history.forEach(msg=>{
+        const role = (msg.role||'').toLowerCase();
+        const label = role === 'user' ? 'You' : 'Agent';
+        const cls = role === 'user' ? 'you' : 'bot';
+        bubble(`<strong>${label}</strong>: ${msg.content}`, cls);
+      });
+    }
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const q = input.value.trim();
+      if (!q) return;
+      input.value='';
+      bubble(`<strong>You</strong>: ${q}`,'you');
+      sendBtn.disabled = true;
+      if (loading) loading.classList.add('show');
+      try{
+        const out = await sendText(q);
+        bubble(`<strong>Agent</strong>: ${out.answer}`,'bot');
+      }catch(err){
+        bubble(`<strong>Error:</strong> ${err.message}`,'err');
+      }finally{
+        sendBtn.disabled = false;
+        input.focus();
+        if (loading) loading.classList.remove('show');
+      }
+    });
+  </script>
+</body>
+</html>

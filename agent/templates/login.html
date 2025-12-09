@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Profile Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background:#0b1020; color:#e5e7eb; margin:0; }
+      .wrap { max-width:420px; margin:60px auto; padding:32px; background:#0f172a; border-radius:14px; border:1px solid #1f2937; box-shadow:0 15px 45px rgba(0,0,0,.35); }
+      h1 { margin-top:0; font-size:1.6rem; }
+      label { display:block; margin:16px 0 6px; font-size:.9rem; color:#cbd5f5; }
+      input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #1f2937; background:#0b1020; color:#e5e7eb; }
+      select { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #1f2937; background:#0b1020; color:#e5e7eb; }
+      button { margin-top:24px; width:100%; padding:12px; border-radius:10px; border:0; background:#2563eb; color:white; font-size:1rem; cursor:pointer; }
+      .error { background:#3f1e25; border:1px solid #8d2f41; padding:10px 12px; border-radius:10px; margin-top:16px; }
+      .hint { margin-top:12px; font-size:.9rem; color:#9ca3af; }
+      a { color:#93c5fd; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Join the Conversation</h1>
+      <form method="post">
+        {% csrf_token %}
+        <label for="identifier">Profile name</label>
+        <input id="identifier" name="identifier" placeholder="e.g. Alice" required>
+
+        <label for="display_name">Display name (optional)</label>
+        <input id="display_name" name="display_name" placeholder="Shown in chat">
+
+        <label for="provider">Model</label>
+        <select id="provider" name="provider">
+          {% for provider in available_providers %}
+          <option value="{{ provider }}" {% if provider == selected_provider %}selected{% endif %}>
+            {% if provider == 'deepseek' %}DeepSeek{% elif provider == 'gemini' %}Gemini{% else %}{{ provider|capfirst }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+
+        <label for="admin_token">Admin access code(optional){% if not token_required %} (optional){% endif %}</label>
+        <input id="admin_token" name="admin_token" placeholder="{% if token_required %}Enter admin token{% else %}Leave blank unless monitoring{% endif %}">
+
+        <button type="submit">Enter</button>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        <p class="hint">Use your unique name so each conversation can be tracked separately.{% if token_required %} Admin monitoring requires the shared access code.{% endif %}</p>
+      </form>
+    </div>
+  </body>
+</html>
