@@ -2,6 +2,13 @@
 
 Lightweight Django portal for chatting with multiple LLM providers and capturing conversation analytics.
 
+## Simple guide (non-technical)
+- Go to https://baseline.pythonanywhere.com/ in your browser.
+- Enter a profile name (any unique name works) and pick a model, then click **Enter**.
+- Type messages in the chat box and press **Send**; responses appear in the chat history.
+- To view analytics , visit **Admin dashboard** and enter the admin access code; on the hosted site use `admin-secret`.
+
+
 ## Features
 - Profile-based login with per-provider chat sessions and preserved context history.
 - Switchable providers (DeepSeek or Gemini) with configurable system prompts and default provider.
@@ -11,10 +18,10 @@ Lightweight Django portal for chatting with multiple LLM providers and capturing
 
 ## Hosted demo
 - Live instance: https://baseline.pythonanywhere.com/
-- Login with any profile name; choose DeepSeek or Gemini (depending on configured keys).
+- Login with any profile name; choose DeepSeek or Gemini.
 - Admin dashboard: https://baseline.pythonanywhere.com/admin-dashboard/
 - Admin access code on the hosted demo: `admin-secret` (enter this when prompted to view monitoring).
-- To change the code for your own deployment, set `PORTAL_ADMIN_TOKEN` in `.env` (for example `PORTAL_ADMIN_TOKEN=baseline-admin`) and share that exact code with viewers who need monitoring access.
+- To change the code for your own deployment, set `PORTAL_ADMIN_TOKEN` in `.env` 
 
 ## Quick start (local)
 1) Ensure Python 3.10+ is installed.
@@ -71,11 +78,6 @@ Notes:
 - Chat: prompts and replies are sent to the selected provider and stored with token/latency metadata; context is preserved per profile and provider.
 - Admin dashboard: `/admin-dashboard/` lists profiles, sessions, and recent turns with filters for profile and session IDs. On the hosted instance use https://baseline.pythonanywhere.com/admin-dashboard/ (requires token if enabled).
 
-## Simple guide (non-technical)
-- Go to https://baseline.pythonanywhere.com/ in your browser.
-- Enter a profile name (any unique name works) and pick a model, then click **Enter**.
-- Type messages in the chat box and press **Send**; responses appear in the chat history.
-- To view analytics (if allowed), visit **Admin dashboard** and enter the admin access code; on the hosted site use `admin-secret`.
 
 ## Development tips
 - Requirements are minimal (`Django`, `requests`, `python-dotenv`) and no frontend build is needed.
